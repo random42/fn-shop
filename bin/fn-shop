@@ -1,0 +1,100 @@
+#!/usr/bin/env node
+
+const fsP = require('fs').promises;
+const fs = require('fs');
+const assert = require('assert');
+// const Realm = require('realm');
+const _ = require('lodash');
+const axios = require('axios');
+
+const [arg1, arg2, arg3] = process.argv.slice(2);
+const prettyJson = (x, d = 2) => JSON.stringify(x, null, d);
+const readFile = async (p) => (await fsP.readFile(p)).toString();
+const readJson = async (p) => JSON.parse(await readFile(p));
+const log = console.error;
+const logJson = (x) => log(prettyJson(x));
+const print = console.log;
+const printJson = (x) => print(prettyJson(x));
+
+require('dotenv').config();
+
+Error.prototype.toJSON = function () {
+  const fields = ['message', 'stack'];
+  return {
+    ..._.pick(this, fields),
+    ..._.omit(this, fields),
+  };
+};
+
+const { FN_BASE_URL, FN_API_KEY, EMAIL_SERVICE, EMAIL_ACCOUNT, EMAIL_PWD } =
+  process.env;
+
+const api = axios.create({
+  baseURL: FN_BASE_URL,
+  headers: {
+    ['TRN-Api-Key']: FN_API_KEY,
+  },
+});
+
+const axiosErr = (e) =>
+  e.isAxiosError ? _.omit(e, ['request', 'response.request']) : e;
+const nodemailer = require('nodemailer');
+const util = require('util');
+
+const _transport = new nodemailer.createTransport({
+  service: EMAIL_SERVICE,
+  auth: {
+    user: EMAIL_ACCOUNT,
+    pass: EMAIL_PWD,
+  },
+});
+
+const mail = {
+  async send(msg) {
+    return _transport.sendMail(msg);
+  },
+  async sendToMe(msg) {
+    return _transport.sendMail({ ...msg, to: EMAIL_ACCOUNT });
+  },
+};
+
+
+async function run() {
+  const input = await readJson(arg1 || '/dev/stdin');
+  // await mail.sendToMe({
+  //   subject: 'pD',
+  //   text: prettyJson({ ciao: 'pD' }),
+  // });
+  const { data: store } = await api.get('/store');
+  const fields = ['name'];
+  // printJson(store);
+  let out = _(input)
+    .entries()
+    .map(([ email, regexes ]) => {
+      const match = _(regexes)
+        .map(r => {
+          const reg = new RegExp(r, 'i');
+          const skins = store.filter(s => fields.some(f => reg.test(s[f])));
+          // log('reg', email, reg, skins);
+          return skins;
+        })
+        .flatten()
+        .uniq()
+        .value();
+      // log(`match ${email} ${match}`);
+      return [ email, match ];
+    })
+    .value();
+  for (const [ email, match ] of out) {
+    if (match.length) {
+      log('email', email, match);
+      await mail.send({
+        to: email,
+        subject: 'fn-shop',
+        text: prettyJson(match),
+      })
+    }
+  }
+}
+
+run().catch((e) => log(prettyJson(axiosErr(e))));
