@@ -3,7 +3,6 @@
 const fsP = require('fs').promises;
 const fs = require('fs');
 const assert = require('assert');
-// const Realm = require('realm');
 const _ = require('lodash');
 const axios = require('axios');
 
@@ -61,6 +60,8 @@ const mail = {
 
 async function run() {
   const input = await readJson(arg1 || '/dev/stdin');
+  log('log');
+  print('print');
   // await mail.sendToMe({
   //   subject: 'pD',
   //   text: prettyJson({ ciao: 'pD' }),
