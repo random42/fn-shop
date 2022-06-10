@@ -1,7 +1,10 @@
-node_modules
+.history/
 
-data
-out
-var
+node_modules/
+
+data/
+var/
+
 *.env
 *.log
+!example.env
