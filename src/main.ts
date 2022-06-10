@@ -1,23 +1,21 @@
 import { Mailer } from './mail';
-import { promises as fs } from 'fs';
 import axios from 'axios';
 import _ from 'lodash';
-import dotenv from 'dotenv';
 import moment from 'moment';
+import pino from 'pino';
+import fs from 'fs-extra';
+import type { PartialDeep } from 'type-fest';
 
 const [arg1] = process.argv.slice(2);
-const prettyJson = (x, d = 2) => JSON.stringify(x, null, d);
-const readFile = async (fn: string) => (await fs.readFile(fn)).toString();
-const readJson = async (fn: string) => JSON.parse(await readFile(fn));
-const log = console.error;
-const logJson = (x) => log(prettyJson(x));
+const defaultConfigPath = '~/.config/fn-shop/config.json';
+const log = pino();
+
+// const logJson = (x) => log(prettyJson(x));
 // const print = console.log;
 // const printJson = (x) => print(prettyJson(x));
 
 const axiosErr = (e) =>
   e.isAxiosError ? _.omit(e, ['request', 'response.request']) : e;
-
-dotenv.config();
 
 const {
   FN_BASE_URL,
@@ -28,22 +26,27 @@ const {
   HOURS_INTERVAL,
 } = process.env;
 
-const mailer = new Mailer({
-  service: EMAIL_SERVICE,
-  auth: {
-    user: EMAIL_ACCOUNT,
-    pass: EMAIL_PWD,
+type Config = {
+  search: {
+    [email: string]: string;
+  };
+  api: {
+    url: string;
+    key: string;
+  };
+  email: {
+    service: string;
+    user: string;
+    pass: string;
+  };
+};
+
+const defaultConfig = (): PartialDeep<Config> => ({
+  api: {
+    url: 'https://api.fortnitetracker.com/v1',
   },
 });
 
-const api = axios.create({
-  baseURL: FN_BASE_URL,
-  headers: {
-    ['TRN-Api-Key']: FN_API_KEY,
-  },
-});
-
-type Config = Record<string, string[]>;
 type StoreItem = {
   imageUrl: string;
   manifestId: number;
@@ -54,9 +57,7 @@ type StoreItem = {
 };
 type Store = StoreItem[];
 
-const getStore = async (): Promise<Store> => (await api.get('/store')).data;
-
-const search = (input: Config, store: Store) => {
+const search = (input: Record<string, string>, store: Store) => {
   const fields = ['name'];
   const out = _(input)
     .entries()
@@ -72,28 +73,39 @@ const search = (input: Config, store: Store) => {
         .value();
       return { email, items };
     })
+    .filter((x) => x.items.length > 0)
     .value();
   return out;
 };
 
 async function run() {
-  const input = await readJson(arg1 || '/dev/stdin');
-  const interval = moment.duration(HOURS_INTERVAL, 'seconds').asMilliseconds();
+  const configPath =
+    arg1 && (await fs.pathExists(arg1)) ? arg1 : defaultConfigPath;
+  let config: Config = await fs.readJSON(configPath);
+  config = _.defaultsDeep(defaultConfig(), config);
+  const mailer = new Mailer({
+    service: config.email.service,
+    auth: {
+      user: config.email.user,
+      pass: config.email.pass,
+    },
+  });
+  const api = axios.create({
+    baseURL: config.api.url,
+    headers: {
+      ['TRN-Api-Key']: config.api.key,
+    },
+  });
+  const getStore = async (): Promise<Store> => (await api.get('/store')).data;
   const matchAndNotify = async () => {
     const store = await getStore();
-    const match = search(input, store);
+    const match = search(config.search, store);
     for (const { email, items } of match) {
-      if (items.length) {
-        log('email', { email, items });
-        await mailer.send(email, 'fn-shop', prettyJson(items));
-      }
+      log.info({ email, items }, 'match');
+      // await mailer.send(email, 'fn-shop', prettyJson(items));
     }
   };
-  const doAndCatch = () => {
-    matchAndNotify().catch((e) => log(prettyJson(axiosErr(e))));
-  };
-  doAndCatch();
-  setInterval(doAndCatch, interval);
+  await matchAndNotify();
 }
 
-run().catch(log);
+run().catch((e) => log.error(axiosErr(e)));
