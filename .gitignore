@@ -6,6 +6,4 @@ dist/
 data/
 var/
 
-*.env
 *.log
-!example.env

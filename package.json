@@ -7,15 +7,15 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "node dist/main.js",
-    "dev": "ts-node src/main.ts",
+    "dev": "ts-node src/main.ts | pino-pretty",
     "prebuild": "trash dist",
     "build": "tsc",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"src/**/*.ts\" --fix",
     "prepare": "run-s build"
   },
-  "bin": {
-    "fn-shop": "./dist/main.js"
+  "directories": {
+    "bin": "./bin"
   },
   "dependencies": {
     "axios": "^0.27.2",
