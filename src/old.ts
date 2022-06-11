@@ -3,10 +3,10 @@ import _ from 'lodash';
 import pino from 'pino';
 import path from 'path';
 import fs from 'fs-extra';
+import * as nodemailer from 'nodemailer';
 import type { PartialDeep } from 'type-fest';
+import { exec, execSync } from 'child_process';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
-import log from './log';
-import tg from './bot';
 
 const [arg1] = process.argv.slice(2);
 const defaultConfigPath = path.join(
@@ -14,19 +14,30 @@ const defaultConfigPath = path.join(
   '.config/fn-shop/config.json',
 );
 
+const log = pino({
+  timestamp: pino.stdTimeFunctions.isoTime,
+  redact: {
+    paths: ['pid', 'hostname'],
+    remove: true,
+  },
+});
+
 const axiosErr = (e) =>
   e.isAxiosError ? _.omit(e, ['request', 'response.request']) : e;
 
 type Config = {
-  fn: {
+  search: {
+    [email: string]: string;
+  };
+  api: {
     url: string;
     key: string;
   };
-  tg: { token: string };
+  email: SMTPTransport.Options;
 };
 
 const defaultConfig = (): PartialDeep<Config> => ({
-  fn: {
+  api: {
     url: 'https://api.fortnitetracker.com/v1',
   },
 });
@@ -63,25 +74,41 @@ const search = (input: Record<string, string>, store: Store) => {
 };
 
 async function run() {
-  console.clear();
+  await execSync('clear');
   const configPath =
     arg1 && (await fs.pathExists(arg1)) ? arg1 : defaultConfigPath;
-  let config: Config = await fs.readJSON('data/config.json');
+  let config: Config = await fs.readJSON(configPath);
   config = _.defaultsDeep(defaultConfig(), config);
-  const bot = await tg(config.tg.token);
-  process.on('exit', () => {
-    log.debug('exit');
+  const mailer = nodemailer.createTransport(config.email);
+  log.info(config);
+  await mailer.sendMail({
+    to: 'rip.trip.777@gmail.com',
+    subject: 'fn-shop',
+    text: 'ciao',
   });
-  log.info('run');
-  // if (1) throw 'xd';
-  // const api = axios.create({
-  //   baseURL: config.api.url,
-  //   headers: {
-  //     ['TRN-Api-Key']: config.api.key,
-  //   },
-  // });
-  // const getStore = async (): Promise<Store> => (await api.get('/store')).data;
-  // await matchAndNotify();
+  if (1) throw 'xd';
+  const api = axios.create({
+    baseURL: config.api.url,
+    headers: {
+      ['TRN-Api-Key']: config.api.key,
+    },
+  });
+  const getStore = async (): Promise<Store> => (await api.get('/store')).data;
+  const matchAndNotify = async () => {
+    const store = await getStore();
+    const match = search(config.search, store);
+    await Promise.all(
+      match.map(async ({ email, items }) => {
+        log.info({ email, items }, 'match');
+        await mailer.sendMail({
+          to: email,
+          subject: 'fn-shop',
+          text: JSON.stringify(items, null, 2),
+        });
+      }),
+    );
+  };
+  await matchAndNotify();
 }
 
 run().catch((e) => log.error(axiosErr(e)));

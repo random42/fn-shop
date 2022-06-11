@@ -1,0 +1,28 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:data/dev.db"
+}
+
+model User {
+  id       Int          @id @default(autoincrement())
+  username String?       @unique
+  tgId     Float        @unique
+  chatId   Float        @unique
+  choices  ItemSearch[]
+}
+
+model ItemSearch {
+  id     Int    @id @default(autoincrement())
+  user   User   @relation(fields: [userId], references: [id])
+  userId Int
+  search String
+
+  @@unique([userId, search])
+}
