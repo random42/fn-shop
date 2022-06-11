@@ -1,11 +1,13 @@
 import { Mailer } from './mail';
 import axios from 'axios';
 import _ from 'lodash';
-import moment from 'moment';
 import pino from 'pino';
 import path from 'path';
 import fs from 'fs-extra';
+import * as nodemailer from 'nodemailer';
 import type { PartialDeep } from 'type-fest';
+import { exec, execSync } from 'child_process';
+import SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 const [arg1] = process.argv.slice(2);
 const defaultConfigPath = path.join(
@@ -21,21 +23,8 @@ const log = pino({
   },
 });
 
-// const logJson = (x) => log(prettyJson(x));
-// const print = console.log;
-// const printJson = (x) => print(prettyJson(x));
-
 const axiosErr = (e) =>
   e.isAxiosError ? _.omit(e, ['request', 'response.request']) : e;
-
-const {
-  FN_BASE_URL,
-  FN_API_KEY,
-  EMAIL_SERVICE,
-  EMAIL_ACCOUNT,
-  EMAIL_PWD,
-  HOURS_INTERVAL,
-} = process.env;
 
 type Config = {
   search: {
@@ -45,11 +34,7 @@ type Config = {
     url: string;
     key: string;
   };
-  email: {
-    service: string;
-    user: string;
-    pass: string;
-  };
+  email: SMTPTransport.Options;
 };
 
 const defaultConfig = (): PartialDeep<Config> => ({
@@ -90,17 +75,19 @@ const search = (input: Record<string, string>, store: Store) => {
 };
 
 async function run() {
+  await execSync('clear');
   const configPath =
     arg1 && (await fs.pathExists(arg1)) ? arg1 : defaultConfigPath;
   let config: Config = await fs.readJSON(configPath);
   config = _.defaultsDeep(defaultConfig(), config);
-  const mailer = new Mailer({
-    service: config.email.service,
-    auth: {
-      user: config.email.user,
-      pass: config.email.pass,
-    },
+  const mailer = nodemailer.createTransport(config.email);
+  log.info(config);
+  await mailer.sendMail({
+    to: 'rip.trip.777@gmail.com',
+    subject: 'fn-shop',
+    text: 'ciao',
   });
+  if (1) throw 'xd';
   const api = axios.create({
     baseURL: config.api.url,
     headers: {
@@ -111,10 +98,16 @@ async function run() {
   const matchAndNotify = async () => {
     const store = await getStore();
     const match = search(config.search, store);
-    for (const { email, items } of match) {
-      log.info({ email, items }, 'match');
-      // await mailer.send(email, 'fn-shop', prettyJson(items));
-    }
+    await Promise.all(
+      match.map(async ({ email, items }) => {
+        log.info({ email, items }, 'match');
+        await mailer.sendMail({
+          to: email,
+          subject: 'fn-shop',
+          text: JSON.stringify(items, null, 2),
+        });
+      }),
+    );
   };
   await matchAndNotify();
 }
