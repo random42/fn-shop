@@ -3,12 +3,23 @@ import axios from 'axios';
 import _ from 'lodash';
 import moment from 'moment';
 import pino from 'pino';
+import path from 'path';
 import fs from 'fs-extra';
 import type { PartialDeep } from 'type-fest';
 
 const [arg1] = process.argv.slice(2);
-const defaultConfigPath = '~/.config/fn-shop/config.json';
-const log = pino();
+const defaultConfigPath = path.join(
+  process.env.HOME,
+  '.config/fn-shop/config.json',
+);
+
+const log = pino({
+  timestamp: pino.stdTimeFunctions.isoTime,
+  redact: {
+    paths: ['pid', 'hostname'],
+    remove: true,
+  },
+});
 
 // const logJson = (x) => log(prettyJson(x));
 // const print = console.log;
