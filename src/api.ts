@@ -1,23 +1,14 @@
 import axios from 'axios';
+import { StoreItem } from './db';
 
 const { FN_API_URL, FN_API_KEY } = process.env;
 
-type StoreItem = {
-  imageUrl: string;
-  manifestId: number;
-  name: string;
-  rarity: string;
-  storeCategory: string;
-  vBucks: number;
-};
-type Store = StoreItem[];
+const api = axios.create({
+  baseURL: FN_API_URL,
+  headers: {
+    ['TRN-Api-Key']: FN_API_KEY,
+  },
+});
 
-const api = (config) =>
-  axios.create({
-    baseURL: FN_API_URL,
-    headers: {
-      ['TRN-Api-Key']: FN_API_KEY,
-    },
-  });
-
-export default api;
+export const getStore = async (): Promise<StoreItem[]> =>
+  (await api.get('/store')).data;

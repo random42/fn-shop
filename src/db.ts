@@ -1,32 +1,30 @@
-import * as p from '@prisma/client';
 export * from '@prisma/client';
 import log from './log';
+import { PrismaClient, StoreItem, User } from '@prisma/client';
+import _ from 'lodash';
 
-const db = new p.PrismaClient();
+const db = new PrismaClient();
 
-export const getChoices = async () => {
-  const users = db.user.findMany();
+export const match = async (
+  store: StoreItem[],
+): Promise<Record<string, StoreItem>> => {
+  type R = Array<User & StoreItem>;
+  const data: R = await db.$transaction(async (tdb: PrismaClient) => {
+    await tdb.storeItem.deleteMany();
+    await Promise.all(store.map((x) => tdb.storeItem.create({ data: x })));
+    return tdb.$queryRaw<R>`select si.*, u.* from "StoreItem" si
+    join "ItemSearch" i on lower(si.name) like ('%' || lower(i.search) || '%')
+    join "User" u on u.id = i."userId"`;
+  });
+  return _(data)
+    .groupBy((x) => x.chatId)
+    .entries()
+    .map(([chatId, x]) => [
+      chatId,
+      _.omit(x, ['id', 'username', 'tgId', 'chatId']),
+    ])
+    .fromPairs()
+    .value();
 };
-
-// const match = (input: Record<string, string>, store: Store) => {
-//   const fields = ['name'];
-//   const out = _(input)
-//     .entries()
-//     .map(([email, reg]) => {
-//       const items = _(reg)
-//         .map((r) => {
-//           const reg = new RegExp(r, 'i');
-//           const items = store.filter((s) => fields.some((f) => reg.test(s[f])));
-//           return items;
-//         })
-//         .flatten()
-//         .uniq()
-//         .value();
-//       return { email, items };
-//     })
-//     .filter((x) => x.items.length > 0)
-//     .value();
-//   return out;
-// };
 
 export default db;
