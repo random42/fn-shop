@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "node dist/main.js",
-    "dev": "nodemon -e ts-node -w src src/main.ts",
+    "dev": "nodemon -e ts-node -w src src/main.ts | pino-pretty",
     "prebuild": "trash dist",
     "build": "tsc",
     "format": "prettier --write \"src/**/*.ts\"",

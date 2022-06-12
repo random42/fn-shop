@@ -31,17 +31,18 @@ const defaultConfig = (): PartialDeep<Config> => ({
 
 async function run() {
   console.clear();
+  1;
   const configPath =
     arg1 && (await fs.pathExists(arg1)) ? arg1 : defaultConfigPath;
   let config: Config = await fs.readJSON('data/config.json');
   config = _.defaultsDeep(defaultConfig(), config);
-  log.info(await db.user.count());
   await db.user.create({
     data: {
       tgId: 1,
       chatId: 1,
     },
   });
+  log.info(await db.user.findMany());
 
   // const bot = await tg(config.tg.token);
   process.on('exit', () => {
