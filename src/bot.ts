@@ -4,14 +4,17 @@ import dotenv from 'dotenv';
 import db, { User, Prisma } from './db';
 import log from './log';
 import { SetOptional } from 'type-fest';
+import _ from 'lodash';
 
 interface Context extends C {
-  user: User;
+  user: User & { admin: boolean };
 }
 
-const u1 = '@random42';
-const chatId = '321311233';
-const userFromCtx = (ctx: Context) => {
+export const bot = new Telegraf<Context>(process.env.TG_TOKEN);
+
+const ADMINS = ['random41'];
+
+const getUserFromCtx = (ctx: Context) => {
   const { from } = ctx.message;
   return {
     tgId: from.id,
@@ -20,13 +23,10 @@ const userFromCtx = (ctx: Context) => {
   };
 };
 
-async function tg(token: string) {
-  const bot = new Telegraf<Context>(token);
-  const i = 0;
-
+export async function setupBot() {
   bot
     .catch((err, ctx) => {
-      log.error({ error: err });
+      log.error({ error: err, user: ctx.user });
     })
     .use((ctx, next) => {
       if (ctx.chat.type !== 'private') {
@@ -37,26 +37,28 @@ async function tg(token: string) {
       next();
     })
     .start(async (ctx) => {
-      const createUser = userFromCtx(ctx);
+      const createUser = getUserFromCtx(ctx);
       log.info(createUser, 'start');
-      console.error('log', log.info(ctx));
       const user = await db.user.upsert({
         create: createUser,
         update: createUser,
-        where: createUser,
+        where: { tgId: createUser.tgId },
       });
-      ctx.user = user;
-      log.info(user);
+      // log.info(user)
     })
     .use(async (ctx, next) => {
       log.info('ctx.user');
-      ctx.user = await db.user.findUnique({
-        where: userFromCtx(ctx),
+      const user = await db.user.findUnique({
+        where: { tgId: getUserFromCtx(ctx).tgId },
       });
-      next();
+      ctx.user = {
+        ...user,
+        admin: ADMINS.includes(user.username),
+      };
+      return next();
     })
     .command('/item', async (ctx) => {
-      log.info('item');
+      log.info(ctx.user, 'item');
       const search = ctx.message.text;
       const item = await db.itemSearch.create({
         data: {
@@ -65,19 +67,23 @@ async function tg(token: string) {
         },
       });
       log.info(item);
-    })
-    .on('message', (ctx) => log.info(ctx.message, 'message'));
+    });
+  // .use((ctx, next) => {
+  //   if (!ctx.user.admin) {
+  //     throw 'not_admin';
+  //   }
+  //   return next();
+  // })
+  // .command('/admin', (ctx) => {
+  //   log.info('admin');
+  // });
   process.once('SIGINT', () => {
     log.info('stop');
     bot.stop('SIGINT');
   });
   process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
-  await bot.launch();
   // await bot.telegram.sendMessage(chatId, 'ciao zi');
-  setInterval(() => {});
 
   return bot;
 }
-
-export default tg;

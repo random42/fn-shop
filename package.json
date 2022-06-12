@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "node dist/main.js",
-    "dev": "nodemon -e ts-node -w src src/main.ts | pino-pretty",
+    "dev": "nodemon -e ts-node -w src --legacy-watch src/main.ts | pino-pretty",
     "prebuild": "trash dist",
     "build": "tsc",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -28,10 +28,8 @@
     "telegraf": "^4.8.5"
   },
   "devDependencies": {
-    "@types/axios": "^0.14.0",
     "@types/fs-extra": "^9.0.13",
     "@types/lodash": "^4.14.182",
-    "@types/moment": "^2.13.0",
     "@types/node": "^16.0.0",
     "@types/nodemailer": "^6.4.4",
     "@typescript-eslint/eslint-plugin": "^5.0.0",

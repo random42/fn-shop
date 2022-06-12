@@ -1,4 +1,7 @@
 import axios from 'axios';
+
+const { FN_API_URL, FN_API_KEY } = process.env;
+
 type StoreItem = {
   imageUrl: string;
   manifestId: number;
@@ -11,9 +14,9 @@ type Store = StoreItem[];
 
 const api = (config) =>
   axios.create({
-    baseURL: config.url,
+    baseURL: FN_API_URL,
     headers: {
-      ['TRN-Api-Key']: config.key,
+      ['TRN-Api-Key']: FN_API_KEY,
     },
   });
 
