@@ -9,7 +9,7 @@ interface Context extends C {
   user: User;
 }
 
-const user = '@random42';
+const u1 = '@random42';
 const chatId = '321311233';
 const userFromCtx = (ctx: Context) => {
   const { from } = ctx.message;
@@ -25,19 +25,21 @@ async function tg(token: string) {
   const i = 0;
 
   bot
-    .use((ctx) => {
+    .catch((err, ctx) => {
+      log.error({ error: err });
+    })
+    .use((ctx, next) => {
       if (ctx.chat.type !== 'private') {
-        log.debug('not_private');
+        log.info('not_private');
         throw 'not_private';
       }
-      log.debug('private');
+      log.info('private');
+      next();
     })
     .start(async (ctx) => {
-      log.debug('start');
-      ctx.reply('bella zi');
-      console.error(log.info(ctx));
-      ctx.reply(ctx.message.chat.id + '');
       const createUser = userFromCtx(ctx);
+      log.info(createUser, 'start');
+      console.error('log', log.info(ctx));
       const user = await db.user.upsert({
         create: createUser,
         update: createUser,
@@ -46,14 +48,14 @@ async function tg(token: string) {
       ctx.user = user;
       log.info(user);
     })
-    .on('message', (ctx) => log.debug(ctx.message))
-    .use(async (ctx) => {
-      log.debug(ctx, 'use');
+    .use(async (ctx, next) => {
+      log.info('ctx.user');
       ctx.user = await db.user.findUnique({
         where: userFromCtx(ctx),
       });
+      next();
     })
-    .command('item', async (ctx) => {
+    .command('/item', async (ctx) => {
       log.info('item');
       const search = ctx.message.text;
       const item = await db.itemSearch.create({
@@ -64,17 +66,16 @@ async function tg(token: string) {
       });
       log.info(item);
     })
-    .catch((err, ctx) => {
-      log.error({ error: err, ctx });
-    });
+    .on('message', (ctx) => log.info(ctx.message, 'message'));
   process.once('SIGINT', () => {
-    log.debug('stop');
+    log.info('stop');
     bot.stop('SIGINT');
   });
   process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
   await bot.launch();
-  await bot.telegram.sendMessage(chatId, 'ciao zi');
+  // await bot.telegram.sendMessage(chatId, 'ciao zi');
+  setInterval(() => {});
 
   return bot;
 }

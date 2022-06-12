@@ -12,9 +12,9 @@ datasource db {
 
 model User {
   id       Int          @id @default(autoincrement())
-  username String?       @unique
-  tgId     Float        @unique
-  chatId   Float        @unique
+  username String?      @unique
+  tgId     Int          @unique
+  chatId   Int          @unique
   choices  ItemSearch[]
 }
 
