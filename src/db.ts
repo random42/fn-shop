@@ -5,9 +5,7 @@ import _ from 'lodash';
 
 const db = new PrismaClient();
 
-export const match = async (
-  store: StoreItem[],
-): Promise<Record<string, StoreItem>> => {
+export const match = async (store: StoreItem[]) => {
   type R = Array<User & StoreItem>;
   const data: R = await db.$transaction(async (tdb: PrismaClient) => {
     await tdb.storeItem.deleteMany();
@@ -16,14 +14,14 @@ export const match = async (
     join "ItemSearch" i on lower(si.name) like ('%' || lower(i.search) || '%')
     join "User" u on u.id = i."userId"`;
   });
+  const userFields = ['id', 'username', 'tgId', 'chatId'];
   return _(data)
-    .groupBy((x) => x.chatId)
+    .groupBy((x) => x.tgId)
     .entries()
-    .map(([chatId, x]) => [
-      chatId,
-      _.omit(x, ['id', 'username', 'tgId', 'chatId']),
-    ])
-    .fromPairs()
+    .map(([tgId, x]) => ({
+      skins: x.map((y) => _.omit(y, userFields)) as StoreItem[],
+      user: _.pick(x[0], userFields) as User,
+    }))
     .value();
 };
 
