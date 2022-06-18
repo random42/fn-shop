@@ -12,11 +12,12 @@ datasource db {
 }
 
 model User {
-  id       Int          @id @default(autoincrement())
-  username String?      @unique
-  tgId     Int          @unique
-  chatId   Int          @unique
-  choices  ItemSearch[]
+  id        Int          @id
+  username  String?      @unique
+  chatId    Int          @unique
+  firstName String?
+  lastName  String?
+  choices   ItemSearch[]
 }
 
 model ItemSearch {

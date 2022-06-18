@@ -2,63 +2,91 @@ import { Telegraf, Context as C } from 'telegraf';
 import dotenv from 'dotenv';
 
 import db, { User, Prisma } from './db';
-import log from './log';
+import logger from './log';
 import { SetOptional } from 'type-fest';
-import _ from 'lodash';
+import _, { TemplateExecutor } from 'lodash';
 
 interface Context extends C {
   user: User & { admin: boolean };
 }
 
-export const bot = new Telegraf<Context>(process.env.TG_TOKEN);
+const bot = new Telegraf<Context>(process.env.TG_TOKEN);
 
-const ADMINS = ['random41'];
+const ADMINS = ['random42'];
 
+const COMMANDS = {
+  search: {
+    desc: 'Get notified when an item that matches your query is on the Fornite item shop',
+  },
+  clear: {
+    desc: 'Clear all your previous searches',
+  },
+  list: {
+    desc: 'List all your searches',
+  },
+};
+
+const helpMessage = (user: User) => {
+  return `Welcome ${
+    user.username ? `@${user.username}` : user.firstName
+  }! Here's some commands to help you.
+${Object.entries(COMMANDS)
+  .map(([cmd, data]) => `/${cmd}\t${data.desc}`)
+  .join('\n')}`;
+};
 const getUserFromCtx = (ctx: Context) => {
   const { from } = ctx;
   return {
-    tgId: from.id,
+    id: from.id,
     username: from.username,
     chatId: ctx.chat.id,
+    firstName: from.first_name,
+    lastName: from.last_name,
   };
 };
 
 export async function setupBot() {
+  const log = logger.child({ ctx: 'bot' });
   bot
     .use((ctx, next) => {
       if (ctx.chat.type !== 'private') {
         log.info('not_private');
         throw 'not_private';
       }
-      log.info('private');
       return next();
     })
     .use(async (ctx, next) => {
-      log.info('user');
       const user = await db.user.findUnique({
-        where: { tgId: getUserFromCtx(ctx).tgId },
+        where: { id: getUserFromCtx(ctx).id },
       });
-      ctx.user = {
-        ...user,
-        admin: ADMINS.includes(user.username),
-      };
+      if (user) {
+        ctx.user = {
+          ...user,
+          admin: ADMINS.includes(user.username),
+        };
+      }
       return next();
     })
     .start(async (ctx) => {
-      const createUser = getUserFromCtx(ctx);
-      log.info(createUser, 'start');
-      await db.user.upsert({
-        create: createUser,
-        update: createUser,
-        where: { tgId: createUser.tgId },
+      const data = getUserFromCtx(ctx);
+      const user = await db.user.upsert({
+        create: data,
+        update: data,
+        where: { id: data.id },
       });
-      // log.info(user)
+      log.info({ user }, 'start');
+      return ctx.reply(helpMessage(user));
     })
-    .command('/item', async (ctx) => {
-      log.info('item');
-      const search = ctx.message.text.replace('/item', '').trim();
+    .use(async (ctx, next) => {
+      if (!ctx.user) {
+        throw 'no user';
+      } else return next();
+    })
+    .command('search', async (ctx) => {
+      const search = ctx.message.text.replace('/search', '').trim();
       if (!search) {
-        ctx.reply('need a search string');
+        await ctx.reply('I need a query. Try /search sparkplug');
+        return;
       }
       const data = {
         search,
@@ -71,7 +99,26 @@ export async function setupBot() {
         },
         update: {},
       });
-      log.info(item, 'item');
+      log.info({ item }, 'search');
+    })
+    .command('clear', async (ctx) => {
+      const { user } = ctx;
+      await db.itemSearch.deleteMany({
+        where: {
+          userId: user.id,
+        },
+      });
+      log.info({ user }, 'clear');
+    })
+    .command('list', async (ctx) => {
+      const { user } = ctx;
+      const items = await db.itemSearch.findMany({
+        where: {
+          userId: user.id,
+        },
+      });
+      log.info({ items }, 'list');
+      if (items.length) await ctx.reply(items.map((x) => x.search).join('\n'));
     })
     .catch((err, ctx) => {
       log.error({ error: err, user: ctx.user });
@@ -86,3 +133,5 @@ export async function setupBot() {
 
   return bot;
 }
+
+export default bot;

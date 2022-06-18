@@ -14,11 +14,11 @@ export const match = async (store: StoreItem[]) => {
     join "ItemSearch" i on lower(si.name) like ('%' || lower(i.search) || '%')
     join "User" u on u.id = i."userId"`;
   });
-  const userFields = ['id', 'username', 'tgId', 'chatId'];
+  const userFields = ['id', 'username', 'chatId', 'firstName', 'lastName'];
   return _(data)
-    .groupBy((x) => x.tgId)
+    .groupBy((x) => x.id)
     .entries()
-    .map(([tgId, x]) => ({
+    .map(([userId, x]) => ({
       skins: x.map((y) => _.omit(y, userFields)) as StoreItem[],
       user: _.pick(x[0], userFields) as User,
     }))
