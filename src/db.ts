@@ -19,7 +19,7 @@ export const match = async (store: StoreItem[]) => {
     .groupBy((x) => x.id)
     .entries()
     .map(([userId, x]) => ({
-      skins: x.map((y) => _.omit(y, userFields)) as StoreItem[],
+      items: x.map((y) => _.omit(y, userFields)) as StoreItem[],
       user: _.pick(x[0], userFields) as User,
     }))
     .value();

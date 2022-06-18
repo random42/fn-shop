@@ -6,7 +6,7 @@ import bot, { setupBot } from './bot';
 import db, { match } from './db';
 import dotenv from 'dotenv';
 import { getStore } from './api';
-import { createJob } from './search';
+import { job } from './notify';
 
 dotenv.config();
 
@@ -14,7 +14,7 @@ async function run() {
   console.clear();
   const bot = await setupBot();
   await bot.launch();
-  createJob();
+  job.start();
   log.info('start');
 }
 

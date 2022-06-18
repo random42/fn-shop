@@ -1,0 +1,3 @@
+search - Get notified when an item that matches your query is on the Fornite item shop
+list - List all your searches
+clear - Clear all your previous searches
