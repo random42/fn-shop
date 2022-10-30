@@ -28,7 +28,6 @@ const COMMANDS: Command[] = fs
     const [command, desc] = line.split('-').map((s) => s.trim());
     return { command, desc };
   });
-logger.info(COMMANDS, 'commands');
 
 const helpMessage = (user: User) => {
   return `Welcome ${
@@ -36,6 +35,7 @@ const helpMessage = (user: User) => {
   }! Here's some commands to help you.
 ${COMMANDS.map(({ command, desc }) => `/${command}\t${desc}`).join('\n')}`;
 };
+
 const getUserFromCtx = (ctx: Context): User => {
   const { from } = ctx;
   return {

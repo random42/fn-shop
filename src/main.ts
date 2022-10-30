@@ -3,7 +3,7 @@ import assert from 'assert';
 import log from './log';
 import dotenv from 'dotenv';
 dotenv.config({
-  path: process.env.DOTENV,
+  path: '~/.config/fn-store/.env',
 });
 
 assert(process.env.TG_TOKEN);
