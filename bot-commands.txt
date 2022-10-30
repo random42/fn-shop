@@ -1,3 +1,4 @@
-search - Get notified when an item that matches your query is on the Fornite item shop
+add - Add a search item to your list, and get notified when it is available on the Fortnite Store
+remove - Remove a search item from your list
 list - List all your searches
-clear - Clear all your previous searches
+clear - Clear your list

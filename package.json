@@ -1,23 +1,31 @@
 {
-  "name": "fn-shop",
+  "name": "fn-store",
   "version": "0.0.1",
   "description": "",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "prestart": "run-s db:sync",
     "start": "node dist/main.js",
-    "dev": "nodemon -e ts-node -w src --legacy-watch src/main.ts | pino-pretty",
+    "predev": "run-s db:sync",
+    "dev": "ts-node-dev --poll --respawn --inspect=0.0.0.0:9229 -- src/main.ts | pino-pretty",
     "db:sync": "prisma db push",
     "db:serve": "serve prisma/data",
-    "prebuild": "trash dist",
-    "build": "tsc",
+    "prebuild": "rimraf dist",
+    "build": "prisma generate && tsc",
+    "prepare": "run-s build",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"src/**/*.ts\" --fix"
   },
   "directories": {
     "bin": "./bin"
   },
+  "files": [
+    "dist/**",
+    "bin/**",
+    "prisma/**"
+  ],
   "dependencies": {
     "@prisma/client": "^3.15.1",
     "axios": "^0.27.2",
@@ -26,9 +34,9 @@
     "dotenv": "^16.0.1",
     "fs-extra": "^10.1.0",
     "lodash": "^4.17.21",
-    "moment": "^2.29.3",
     "nodemailer": "^6.7.5",
     "pino": "^8.0.0",
+    "serve": "^14.0.1",
     "telegraf": "^4.8.5"
   },
   "devDependencies": {
@@ -48,11 +56,10 @@
     "pino-pretty": "^7.3.0",
     "prettier": "^2.3.2",
     "prisma": "^3.15.1",
-    "serve": "^13.0.2",
+    "rimraf": "^3.0.2",
     "source-map-support": "^0.5.20",
     "supertest": "^6.1.3",
-    "trash-cli": "^5.0.0",
-    "ts-node": "^10.0.0",
+    "ts-node-dev": "^2.0.0",
     "tsconfig-paths": "^3.10.1",
     "type-fest": "^2.13.0",
     "typescript": "^4.3.5"

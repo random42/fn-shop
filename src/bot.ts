@@ -1,10 +1,10 @@
 import { Telegraf, Context as C } from 'telegraf';
-import dotenv from 'dotenv';
-
+import fs from 'fs';
 import db, { User, Prisma } from './db';
 import logger from './log';
 import { SetOptional } from 'type-fest';
 import _, { TemplateExecutor } from 'lodash';
+import path from 'path';
 
 interface Context extends C {
   user: User & { admin: boolean };
@@ -14,27 +14,29 @@ const bot = new Telegraf<Context>(process.env.TG_TOKEN);
 
 const ADMINS = ['random42'];
 
-const COMMANDS = {
-  search: {
-    desc: 'Get notified when an item that matches your query is on the Fornite item shop',
-  },
-  clear: {
-    desc: 'Clear all your previous searches',
-  },
-  list: {
-    desc: 'List all your searches',
-  },
-};
+interface Command {
+  command: string;
+  desc: string;
+}
+
+const COMMANDS: Command[] = fs
+  .readFileSync(path.join(__dirname, '../bot-commands.txt'))
+  .toString()
+  .split('\n')
+  .filter((x) => x)
+  .map((line) => {
+    const [command, desc] = line.split('-').map((s) => s.trim());
+    return { command, desc };
+  });
+logger.info(COMMANDS, 'commands');
 
 const helpMessage = (user: User) => {
   return `Welcome ${
     user.username ? `@${user.username}` : user.firstName
   }! Here's some commands to help you.
-${Object.entries(COMMANDS)
-  .map(([cmd, data]) => `/${cmd}\t${data.desc}`)
-  .join('\n')}`;
+${COMMANDS.map(({ command, desc }) => `/${command}\t${desc}`).join('\n')}`;
 };
-const getUserFromCtx = (ctx: Context) => {
+const getUserFromCtx = (ctx: Context): User => {
   const { from } = ctx;
   return {
     id: from.id,
@@ -82,10 +84,10 @@ export async function setupBot() {
         throw 'no user';
       } else return next();
     })
-    .command('search', async (ctx) => {
-      const search = ctx.message.text.replace('/search', '').trim();
+    .command('add', async (ctx) => {
+      const search = ctx.message.text.replace('/add', '').trim();
       if (!search) {
-        await ctx.reply('I need a query. Try /search sparkplug');
+        await ctx.reply('I need a query. Try: /add sparkplug');
         return;
       }
       const data = {
@@ -99,7 +101,26 @@ export async function setupBot() {
         },
         update: {},
       });
-      log.info({ item }, 'search');
+      log.info({ item }, 'add');
+      await ctx.reply(`Added "${search}" to your list`);
+    })
+    .command('remove', async (ctx) => {
+      const search = ctx.message.text.replace('/remove', '').trim();
+      if (!search) {
+        await ctx.reply('I need a query. Try: /remove sparkplug');
+        return;
+      }
+      const data = {
+        search,
+        userId: ctx.user.id,
+      };
+      const item = await db.itemSearch.delete({
+        where: {
+          userId_search: data,
+        },
+      });
+      log.info({ item }, 'remove');
+      await ctx.reply(`Removed "${search}" from your list`);
     })
     .command('clear', async (ctx) => {
       const { user } = ctx;
@@ -109,6 +130,7 @@ export async function setupBot() {
         },
       });
       log.info({ user }, 'clear');
+      await ctx.reply('Deleted all your searches');
     })
     .command('list', async (ctx) => {
       const { user } = ctx;
